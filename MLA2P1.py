@@ -72,14 +72,23 @@ class Model:
 
             for batch in self.batches:
                 data = train[batch]
+
                 X = data[:,[0, 1]]
+                print(f'X.shape = {X.shape}')
                 l = data[:,2].reshape((len(batch), 1))
+                print(f'l.shape = {l.shape}')
                 z = np.dot(X, W.T) + bias
+                print(f'z.shape = {z.shape}')
                 h = sigmoid(z)
+                print(f'h.shape = {h.shape}')
                 dz = h - l
+                print(f'dz.shape = {dz.shape}')
 
                 dW = 1 / m * np.dot(dz.T, X)
+                print(f'dW.shape = {dW.shape}')
+                print(W)
                 db = np.sum(dz) / m
+                print(f'db.shape = {db.shape}')
 
                 W = W - self.learning_rate * dW
                 bias -= self.learning_rate * db

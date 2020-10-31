@@ -1,17 +1,16 @@
-import numpy as np
 
+import matplotlib.pyplot as plt
 
-a = np.zeros((5))
-b = np.array([0,0,0,1,1])
-t = np.equal(a,b)
-c = np.count_nonzero(t)
-a = np.where(b == 1)[0]
+world_area = (1500, 1000)
 
-b[a] = 4
-print(b)
+start = (100, 500)
+goal = (1200, 500)
 
-for i in range(0, 100, 5):
-	threshold = i / 100
-	print(threshold)
+plt.plot([0,0,1500,1500,0],[0,1000,1000,0,0])
+plt.scatter(start[0], start[1])
+plt.scatter(goal[0], goal[1])
+
+plt.show()
+
 
 
