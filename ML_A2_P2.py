@@ -4,9 +4,8 @@ import matplotlib.pyplot as plt
 import math
 from copy import deepcopy
 
-def neg_log_loss(pred, label):
-    loss = -np.log(pred[int(label)])
-    return loss
+def cross_entropy(p, q):
+	return -sum([p[i]*math.log(q[i]) for i in range(len(p))])
 
 
 def softmax(x):
@@ -24,59 +23,76 @@ class Model:
 
     def train(self, train, label):
 
-        train_idx = np.arange(len(label))
-        np.random.shuffle(train_idx)
-        batches = np.array_split(train_idx, len(label)//self.batch_size+1)
-        W = np.random.random((28,28))
-        bias = 1
-        m = self.batch_size
+        # number of different classes to classify. 5 in our case
+        classes = len(np.unique(label))
 
-        oldloss = 20
+        batch_size = self.batch_size
+
+        # training indices from 0 - len(train_set)
+        train_idx = np.arange(len(label))
+
+        # shuffle training indices
+        np.random.shuffle(train_idx)
+
+        # create batches of given batch size from shuffled indices
+        batches = np.array_split(train_idx, len(label)//batch_size+1)
+
+        # Initialize weight matrix, bias and set batch_size
+        W = np.random.random((28*28, classes))
+        bias = 1
 
         for i in range(10000):
             for batch in batches:
 
-                X = train[batch]
-                l = label[batch].reshape((len(batch), 1))
+                X = np.zeros((batch_size, 28*28))
+                for j in range(len(train[batch])):
+                    X[j] = train[batch][j].flatten()
 
-                z = np.dot(X, W.T) + bias
+                l = label[batch]
+                y = np.zeros((batch_size, classes))  # Shape = (32,5)
 
-                h = softmax(z)
-                dz = h - l
-                dW = 1 / m * np.dot(dz.T, X)
-                db = np.sum(dz) / m
+                for j in range(len(y)):
+                    y[j][l[j]] = 1
+
+                z = np.dot(X, W) + bias # Shape = (32,5)
+                h = softmax(z) # Shape = (32,5)
+                dz = h - y # Shape = (32,5)
+                dW = np.dot(X.T, dz) / batch_size # Shape = (32,764)
+                db = np.sum(dz) / batch_size
+
+                if i % 1000 == 0:
+                    print(h[-1], y[-1])
+                    loss = cross_entropy(h[-1].reshape(classes,1), y[-1].reshape(classes,1))
+                    print(f"Loss at iteration({i} = {loss})")
 
                 W = W - self.learning_rate * dW
                 bias -= self.learning_rate * db
-
-                newloss = neg_log_loss(h, l)
-
-            # check threshold
-            if newloss - oldloss < self.tolerance:
-                break
 
         self.W = W
         self.bias = bias
 
 
-    def predict(self, test, threshold=0.5):
+    def predict(self, test, l):
 
-        X = test[:, [0, 1]]
-        testsize = X.shape[0]
+        # number of different classes to classify. 5 in our case
+        classes = len(np.unique(l))
+        testsize = test.shape[0]
 
+        # get trained weights
         W = self.W
-        b = self.bias
-        z = np.dot(X, W.T) + b
-        h = sigmoid(z)
+        bias = self.bias
+
+        X = test.reshape((testsize, 28 * 28))  # Shape = (test_len,764)
+
+        z = np.dot(X, W) + bias
+        h = softmax(z)
 
         predictions = np.zeros((testsize,1))
-        class1idx = np.where(h > threshold)
-        class0idx = np.where(h <= threshold)
-        predictions[class1idx[0]] = 1
-        predictions[class0idx[0]] = 0
 
-        actual = test[:, 2].reshape((testsize,1))
-        accuracy = (np.count_nonzero(np.equal(actual, predictions))/testsize) * 100
+        for i in range(len(h)):
+            predictions[i] = np.argmax(h[i])
+
+        accuracy = (np.count_nonzero(np.equal(l, predictions))/testsize) * 100
         print(f'Accuracy with LR({self.learning_rate}) = {accuracy}%')
 
         return predictions
@@ -100,52 +116,6 @@ class Model:
 
         return TP, FP, TN, FN
 
-    def calculateAUC(self, x, y):
-        area = 0
-        for i in range(len(x)):
-            if i != 0:
-                area += (x[i] - x[i - 1]) * y[i - 1] + (0.5 * (x[i] - x[i - 1]) * (y[i] - y[i - 1]))
-
-        return -area
-
-
-    def ROC(self, test):
-
-        X = test[:, [0, 1]]
-        testsize = X.shape[0]
-
-        W = self.W
-        b = self.bias
-        z = np.dot(X, W.T) + b
-        h = sigmoid(z)
-
-        predictions = np.zeros((testsize, 1))
-        actual = test[:, 2].reshape((testsize, 1))
-
-        truePositiveRate = []
-        falsePositiveRate = []
-
-        for i in range(0, 100, 5):
-            threshold = i/100
-            class1idx = np.where(h > threshold)
-            class0idx = np.where(h <= threshold)
-            predictions[class1idx[0]] = 1
-            predictions[class0idx[0]] = 0
-
-            TP, FP, TN, FN = self.confusionMatrix(actual, predictions)
-
-            truePositiveRate.append(TP/500)
-            falsePositiveRate.append(FP/500)
-
-        truePositiveRate.append(0)
-        falsePositiveRate.append(0)
-        auc = self.calculateAUC(falsePositiveRate, truePositiveRate)
-
-        plt.plot(falsePositiveRate, truePositiveRate)
-        plt.title(f'ROC Curve, AUC = {auc}')
-        plt.ylabel('True Positive Rate')
-        plt.xlabel('False Positive Rate')
-        plt.show()
 
 
 if __name__ == "__main__":
@@ -173,6 +143,7 @@ if __name__ == "__main__":
     model = Model(learningRate, batchsize, tolerance)
     model.train(X_train, y_train)
     predictions = model.predict(X_test, y_test)
+    print(predictions)
 
 
 
